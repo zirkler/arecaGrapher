@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Home</title>
+    <script src="../javascripts/jquery-1.9.0.js"></script> 
+    <script src="../javascripts/highcharts.js"></script>   
+    <link rel='stylesheet' href='/stylesheets/style.css'/>
+  </head>
+    <body>
+        <$ for(var i=0; i < backupTargets.length; i++) { $>
+            <div id="container<$=backupTargets[i]._id$>" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+            <hr>
+        <$ } $>
+        <script>
+        $(function () {
+            <$ for(var i=0; i < backupTargets.length; i++) { $>
+            $('#container<$=backupTargets[i]._id$>').highcharts({
+                chart: {
+                    type: 'spline'
+                },
+                title: {
+                    text: '<$=targetData[i].targetName$>'
+                },
+                subtitle: {
+                    text: '<$=targetData[i].targetId$>'
+                },
+                xAxis: {
+                    type: 'datetime',
+                    
+                    title: {
+                        text: 'Date'
+                    }
+                },
+                yAxis: [
+                    {
+                        title: {
+                            text: 'Size (kiByte)'
+                        },
+                        min: 0
+                    },
+                    {
+                        title: {
+                            text: 'Written (kiByte)'
+                        },
+                        opposite: true,
+                        min: 0
+                    },
+                    {
+                        title: {
+                            text: 'Duration (Minutes)'
+                        },
+                        opposite: true,
+                        min: 0,
+                        max: 200
+                    }
+                ],
+                tooltip: {
+                    
+                    shared: true
+                },
+                plotOptions: {
+                    spline: {
+                        marker: {
+                            enabled: true
+                        }
+                    }
+                },
+
+                series: [
+                    {
+                        name: "written (kb)",
+                        type: "column",
+                        color: "#60BD68",
+                        pointRange: 24 * 3600 * 1000,
+                        yAxis: 1,
+                        data: [
+                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
+                                [new Date("<$= targetData[i].writtenKb[j][0] $>").getTime(), <$= targetData[i].writtenKb[j][1] $>],
+                            <$ } $>
+                        ]
+                    },
+                    {
+                        name: "backupDuration (min)",
+                        type: "column",
+                        color: "#5DA5DA",
+                        pointRange: 24 * 3600 * 1000,
+                        yAxis: 2,
+                        data: [
+                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
+                                [new Date("<$= targetData[i].duration[j][0] $>").getTime(), <$= targetData[i].duration[j][1] $>],
+                            <$ } $>
+                        ]
+                    },
+                    {
+                        name: "sourceFilesSize (kb)",
+                        type: "spline",
+                        marker: {
+                            symbol: 'circle',
+                            lineColor: null,
+                            lineWidth: 0.5
+                        },
+                        color: "#4D4D4D",
+                        data: [
+                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
+                                [new Date("<$= targetData[i].sourceFilesSize[j][0] $>").getTime(), <$= targetData[i].sourceFilesSize[j][1] $>],
+                            <$ } $>
+                        ]
+                    },
+                    {
+                        name: "BackupSize (kb)",
+                        type: "spline",
+                        marker: {
+                            symbol: 'circle',
+                            lineColor: null,
+                            lineWidth: 0.5
+                        },
+                        color: "#F179AE",
+                        data: [
+                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
+                                [new Date("<$= targetData[i].sourceFilesSize[j][0] $>").getTime(), <$= targetData[i].archivePhysicalSize[j][1] $>],
+                            <$ } $>
+                        ]
+                    }
+                ]
+            });
+            <$ } $>
+        });
+        </script>
+    </body>
+</html>
