@@ -19,10 +19,10 @@
                     type: 'spline'
                 },
                 title: {
-                    text: '<$=targetData[i].targetName$>'
+                    text: '<$=backupTargets[i].data.targetName$>'
                 },
                 subtitle: {
-                    text: '<$=targetData[i].targetId$>'
+                    text: '<$=backupTargets[i].targetId$>'
                 },
                 xAxis: {
                     type: 'datetime',
@@ -74,8 +74,8 @@
                         pointRange: 24 * 3600 * 1000,
                         yAxis: 1,
                         data: [
-                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
-                                [new Date("<$= targetData[i].writtenKb[j][0] $>").getTime(), <$= targetData[i].writtenKb[j][1] $>],
+                            <$ for(var j=0; j < backupTargets[i].data.sourceFilesSize.length; j++) { $>
+                                [new Date("<$= backupTargets[i].data.writtenKb[j][0] $>").getTime(), <$= backupTargets[i].data.writtenKb[j][1] $>],
                             <$ } $>
                         ]
                     },
@@ -86,8 +86,8 @@
                         pointRange: 24 * 3600 * 1000,
                         yAxis: 2,
                         data: [
-                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
-                                [new Date("<$= targetData[i].duration[j][0] $>").getTime(), <$= targetData[i].duration[j][1] $>],
+                            <$ for(var j=0; j < backupTargets[i].data.duration.length; j++) { $>
+                                [new Date("<$= backupTargets[i].data.duration[j][0] $>").getTime(), <$= backupTargets[i].data.duration[j][1] $>],
                             <$ } $>
                         ]
                     },
@@ -101,8 +101,8 @@
                         },
                         color: "#4D4D4D",
                         data: [
-                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
-                                [new Date("<$= targetData[i].sourceFilesSize[j][0] $>").getTime(), <$= targetData[i].sourceFilesSize[j][1] $>],
+                            <$ for(var j=0; j < backupTargets[i].data.sourceFilesSize.length; j++) { $>
+                                [new Date("<$= backupTargets[i].data.sourceFilesSize[j][0] $>").getTime(), <$= backupTargets[i].data.sourceFilesSize[j][1] $>],
                             <$ } $>
                         ]
                     },
@@ -116,8 +116,8 @@
                         },
                         color: "#F179AE",
                         data: [
-                            <$ for(var j=0; j < targetData[i].sourceFilesSize.length; j++) { $>
-                                [new Date("<$= targetData[i].sourceFilesSize[j][0] $>").getTime(), <$= targetData[i].archivePhysicalSize[j][1] $>],
+                            <$ for(var j=0; j < backupTargets[i].data.archivePhysicalSize.length; j++) { $>
+                                [new Date("<$= backupTargets[i].data.archivePhysicalSize[j][0] $>").getTime(), <$= backupTargets[i].data.archivePhysicalSize[j][1] $>],
                             <$ } $>
                         ]
                     }

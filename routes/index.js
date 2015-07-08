@@ -66,12 +66,12 @@ router.get('/', function(req, res, next) {
                         var duration = (end - start)/1000/60;
                         data.duration.push([dataResult[j].backupEndDate, duration]);
                     }
-                    targetList.push(data);
+                    targetResult.data = data;
                     cb();
                 });    
             }, function(){
                 db.close();
-                res.render('index', { backupTargets: targetResult, targetData: targetList});
+                res.render('index', { backupTargets: targetResult });
                 
             });
         });
