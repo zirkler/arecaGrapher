@@ -6,6 +6,7 @@ var async = require('async');
 var MongoClient = require('mongodb').MongoClient;
 var moment = require('moment');
 var schedule = require('node-schedule');
+var q = require('q');
 
 var standalone = !module.parent;
 var mongohost = 'localhost:27017';
@@ -23,10 +24,14 @@ var start = function() {
             console.log('Error loading client secret file: ' + err);
             return;
         }
-      
+
         // Authorize a client with the loaded credentials, then call the
         // Gmail API.
-        authorize(JSON.parse(content), listBackupMails);
+        // TODO: use fcall instead
+        authorize(JSON.parse(content)).then(function(auth) {
+            listBackupMails(auth);
+        });
+
     });
 };
 
@@ -38,6 +43,7 @@ var start = function() {
  * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials, callback) {
+    var deferred = q.defer();
     var clientSecret = credentials.installed.client_secret;
     var clientId = credentials.installed.client_id;
     var redirectUrl = credentials.installed.redirect_uris[0];
@@ -47,13 +53,17 @@ function authorize(credentials, callback) {
     // Check if we have previously stored a token.
     fs.readFile(TOKEN_PATH, function(err, token) {
         if (err) {
-            getNewToken(oauth2Client, callback);
+            getNewToken().then(function(oauth2Client) {
+                deferred.resolve(oauth2Client);
+            });
         } else {
             oauth2Client.credentials = JSON.parse(token);
-            callback(oauth2Client);
+            deferred.resolve(oauth2Client);
         }
     });
+    return deferred.promise;
 }
+
 
 /**
  * Get and store new token after prompting for user authorization, and then
@@ -64,6 +74,7 @@ function authorize(credentials, callback) {
  *     client.
  */
 function getNewToken(oauth2Client, callback) {
+    var deferred = q.defer();
     var authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES
@@ -82,9 +93,10 @@ function getNewToken(oauth2Client, callback) {
             }
             oauth2Client.credentials = token;
             storeToken(token);
-            callback(oauth2Client);
+            q.resolve(oauth2Client);
         });
     });
+    return deferred.promise;
 }
 
 /**
@@ -106,7 +118,7 @@ function storeToken(token) {
 
 
 /*
-    Searches for the Mails IDs, then calls processMessage() for every message.
+    Get the latest 99 Mail IDs from Gmail.
 */
 function listBackupMails(auth) {
     var gmail = google.gmail('v1');
@@ -118,6 +130,7 @@ function listBackupMails(auth) {
         q: 'label:backup-notification'
     }, function(err, response) {
         var messages = response.messages;
+        console.log(messages.length);
         async.eachLimit(messages, 5, function(message, cb) {
             var id = message.id;
             // get a specific message
@@ -136,18 +149,19 @@ function listBackupMails(auth) {
     });
 }
 
+
 /*
     This is called for every Mail.
 */
 var processMessage = function(err, message, cb) {
     if (err) {
-        console.log("Error: ", err);    
+        console.log("Error: ", err);
         return;
     }
     var buf = new Buffer(message.payload.body.data, 'base64').toString('ascii');
     message._id = message.id;
     message.payload.body.plainText = buf;
-    
+
     MongoClient.connect(mongoConnection, function(err, db) {
         if (!db) {
             console.log(err);
@@ -159,7 +173,6 @@ var processMessage = function(err, message, cb) {
             message,
             {upsert: true},
             function(err, result) {
-                db.close();
                 cb();
             }
         );
@@ -174,12 +187,12 @@ var parseMails = function() {
     MongoClient.connect(mongoConnection, function(err, db) {
         var mails = db.collection('mails');
         mails.find({}).each(function(err, mail) {
+
             if (mail === null) {
                 console.log(new Date(), "finshed inserting");
-                db.close();
                 return;
             }
-            
+
             var plainText = mail.payload.body.plainText;
             if (/Overall Status : Success/g.test(plainText)) {
                 var backupDetails = {};
@@ -197,16 +210,16 @@ var parseMails = function() {
                 backupDetails.sizeWithoutHistory = 0;
                 backupDetails.sizeOfHistory = 0;
                 backupDetails.fileList = [];
-                
+
                 for (var i = 0; i < mail.payload.headers.length; i++) {
                     var header = mail.payload.headers[i];
                     // read areca target
                     if (header.name === "X-Areca-Target") backupDetails.targetId = header.value;
-                    
+
                     // read backupEndDate
                     if (header.name === "Date") backupDetails.backupEndDate = moment(Date.parse(header.value)).toISOString();
                 }
-                
+
                 // get start date in a nice format
                 var backupStartDateString = plainText.match(/(\) on)([.\s\S]*?)\n/g)[0].split("on")[1].trim();
                 var startDateFormat = "";
@@ -217,7 +230,7 @@ var parseMails = function() {
                     // Jun 23, 2015 9:33 AM
                     startDateFormat = "MMM DD, YYYY hh:mm A";
                 }
-                
+
                 // extract properties
                 backupDetails.name = plainText.match(/(^)([.\s\S]*?)(\()/g)[0].split("(")[0].trim();
                 backupDetails.backupStartDate = moment(backupStartDateString, startDateFormat).toISOString();
@@ -229,21 +242,25 @@ var parseMails = function() {
                 backupDetails.sizeWithoutHistory = plainText.match(/(\((SWH)\))([.\s\S]*?)\n/g)[0].split(" ")[2].trim().replace(/\.|,/g, "");
                 backupDetails.sizeOfHistory = plainText.match(/(SOH)([.\s\S]*?)\n/g)[0].split(" ")[2].trim().replace(/\.|,/g, "");
                 backupDetails.sourceFilesSize = plainText.match(/(\(SFS\))([.\s\S]*?)\n/g)[0].split(" ")[2].trim().replace(/\.|,/g, "");
-                
+
                 // read fileList
                 if (backupDetails.writtenKb > 0) {
-                    backupDetails.fileList = plainText.match(/(?:\[Beginning\])([.\s\S]*)\[End\]/g)[0].split("\r\n");    
+                    backupDetails.fileList = plainText.match(/(?:\[Beginning\])([.\s\S]*)\[End\]/g)[0].split("\r\n");
                     backupDetails.fileList.splice(0, 1);
                     backupDetails.fileList.splice(backupDetails.fileList.length-1, 1);
                 }
-                
+
+
+
                 // save to database
                 var collection = db.collection('backups');
+                console.log(backupDetails._id);
                 collection.updateOne(
                     {_id: backupDetails._id},
                     backupDetails,
                     {upsert: true},
                     function(err, result) {
+                        if (err) console.log(err);
                     }
                 );
             }
@@ -253,6 +270,3 @@ var parseMails = function() {
 
 if (standalone) start();
 module.exports = { start: start };
-
-
-
