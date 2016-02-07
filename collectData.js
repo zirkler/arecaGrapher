@@ -9,7 +9,6 @@ var schedule = require('node-schedule');
 var q = require('q');
 
 var db;
-var mails = [];
 var standalone = !module.parent;
 var mongohost = 'localhost:27017';
 var mongodb = 'backupDB';
@@ -30,19 +29,30 @@ var start = function() {
 
         // Authorize a client with the loaded credentials, then call the
         // Gmail API.
-        // TODO: use fcall instead
-
-        MongoClient.connect(mongoConnection, function(err, db) {
-            if (!db) {
-                console.log(err);
-                return;
-            }
-            GLOBAL.db = db;
+        connectMongo().then(function(db) {
             authorize(JSON.parse(content)).then(function(auth) {
-                listBackupMails(auth);
+                listBackupMails(auth).then(function(mails) {
+                    parseMails(mails).then(function() {
+                        console.log("done");
+                        GLOBAL.db.close();
+                    });
+                });
             });
         });
     });
+};
+
+var connectMongo = function() {
+    var deferred = q.defer();
+    MongoClient.connect(mongoConnection, function(err, db) {
+        if (!db) {
+            console.log(err);
+            deferred.rejcet(err);
+        }
+        GLOBAL.db = db;
+        deferred.resolve(db);
+    });
+    return deferred.promise;
 };
 
 /**
@@ -133,6 +143,8 @@ function storeToken(token) {
  * @param {Object} auth The OAuth2Client object.
  */
 function listBackupMails(auth) {
+    var deferred = q.defer();
+    var mails = [];
     var gmail = google.gmail('v1');
     // get a list of all messages
     gmail.users.messages.list({
@@ -162,15 +174,17 @@ function listBackupMails(auth) {
             // all emails saved, now parse them!
             console.log("maillength", mails.length);
             console.log(new Date(), "loaded all mails.");
-            parseMails();
+            deferred.resolve(mails);
         });
     });
+    return deferred.promise;
 }
 
 /*
     Parse the collected mails and save them as "areca statistics objects" in our database.
 */
-var parseMails = function() {
+var parseMails = function(mails) {
+    var deferred = q.defer();
     async.eachLimit(mails, 5, function(mail, cb) {
         var plainText = mail.payload.body.plainText;
         if (/Overall Status : Success/g.test(plainText)) {
@@ -244,9 +258,9 @@ var parseMails = function() {
         }
     }, function() {
         // all mails parsed
-        console.log("all mails parsed");
-        GLOBAL.db.close();
+        deferred.resolve();
     });
+    return deferred.promise;
 };
 
 if (standalone) start();
