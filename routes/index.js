@@ -11,13 +11,13 @@ var mongoConnection = 'mongodb://' + mongohost + '/' + mongodb;
 /* GET home page. */
 router.get('/', function(req, res, next) {
     MongoClient.connect(mongoConnection, function(err, db) {
-        
+
         if (err) {
             console.log(err);
             res.send(err);
             return;
         }
-        
+
         // get all targets
         var backups = db.collection('backups');
         backups.aggregate([
@@ -33,7 +33,7 @@ router.get('/', function(req, res, next) {
                 $sort: {"name": 1}
             }
         ]).toArray(function(err, targetResult) {
-            
+
             // get data for each target
             var targetList = [];
             async.each(targetResult, function(targetResult, cb) {
@@ -42,8 +42,8 @@ router.get('/', function(req, res, next) {
                 backups.find({
                     targetId: targetId,
                 }, {
-                    limit: 99, 
-                    fields: {fileList: 0}, 
+                    limit: 9999, 
+                    fields: {fileList: 0},
                     sort: {"backupEndDate": 1}
                 }).toArray(function(err, dataResult) {
                     var data = {
@@ -54,12 +54,12 @@ router.get('/', function(req, res, next) {
                         writtenKb: [],
                         duration: []
                     };
-                    
+
                     for (var j = 0; j < dataResult.length; j++) {
                         data.sourceFilesSize.push([dataResult[j].backupEndDate, dataResult[j].sourceFilesSize]);
                         data.archivePhysicalSize.push([dataResult[j].backupEndDate, dataResult[j].archivePhysicalSize]);
                         data.writtenKb.push([dataResult[j].backupEndDate, dataResult[j].writtenKb]);
-                        
+
                         // calc duration of the backup
                         var start = new Date(dataResult[j].backupStartDate).getTime();
                         var end = new Date(dataResult[j].backupEndDate).getTime();
@@ -68,11 +68,11 @@ router.get('/', function(req, res, next) {
                     }
                     targetResult.data = data;
                     cb();
-                });    
+                });
             }, function(){
                 db.close();
                 res.render('index', { backupTargets: targetResult });
-                
+
             });
         });
     });
