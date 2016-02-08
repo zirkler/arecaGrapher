@@ -42,7 +42,6 @@ router.get('/', function(req, res, next) {
                 backups.find({
                     targetId: targetId,
                 }, {
-                    limit: 9999, 
                     fields: {fileList: 0},
                     sort: {"backupEndDate": 1}
                 }).toArray(function(err, dataResult) {
