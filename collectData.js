@@ -19,6 +19,9 @@ var SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.goo
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 
+/**
+ * Main function.
+ */
 var start = function() {
     // Load client secrets from a local file.
     fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -42,6 +45,9 @@ var start = function() {
     });
 };
 
+/*
+ * Connect to MongoDB and store the connection.
+ */
 var connectMongo = function() {
     var deferred = q.defer();
     MongoClient.connect(mongoConnection, function(err, db) {
@@ -154,7 +160,6 @@ function listBackupMails(auth) {
         q: 'label:backup-notification'
     }, function(err, response) {
         var messages = response.messages;
-        console.log(messages.length);
         async.eachLimit(messages, 5, function(message, cb) {
             var id = message.id;
             // get a specific message
